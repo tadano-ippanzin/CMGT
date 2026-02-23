@@ -6,65 +6,76 @@
     <title>ChaosMusicGenerelTool(CMGT)</title>
     <style>
         body { background: #000; color: #0ff; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; touch-action: manipulation; }
-        #panel { border: 3px double #0ff; padding: 25px; background: #001; width: 85%; max-width: 400px; box-shadow: 0 0 30px #044; text-align: center; }
-        h1 { font-size: 1rem; margin-bottom: 20px; letter-spacing: 2px; color: #fff; }
-        .stat { font-size: 1.1rem; margin: 12px 0; text-align: left; border-bottom: 1px solid #033; padding-bottom: 5px; word-break: break-all; }
-        .highlight { color: #f0f; font-weight: bold; font-size: 1.4rem; }
-        button { background: #0ff; color: #000; border: none; padding: 25px; width: 100%; font-size: 1.4rem; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 20px; transition: 0.1s; }
+        #panel { border: 3px double #0ff; padding: 20px; background: #001; width: 90%; max-width: 420px; box-shadow: 0 0 30px #044; text-align: center; }
+        h1 { font-size: 0.9rem; margin-bottom: 15px; letter-spacing: 1px; color: #fff; }
+        .stat { font-size: 1rem; margin: 10px 0; text-align: left; border-bottom: 1px solid #033; padding-bottom: 5px; word-break: break-all; min-height: 4em; }
+        .highlight { color: #f0f; font-weight: bold; font-size: 1.3rem; }
+        select { background: #000; color: #0ff; border: 1px solid #0ff; margin-bottom: 15px; font-size: 0.8rem; padding: 5px; width: 100%; cursor: pointer; }
+        button { background: #0ff; color: #000; border: none; padding: 20px; width: 100%; font-size: 1.3rem; font-weight: bold; cursor: pointer; border-radius: 5px; transition: 0.1s; }
         button:disabled { background: #333; color: #666; cursor: wait; }
-        .msg { font-size: 0.7rem; color: #ff0; margin-top: 15px; font-weight: bold; }
+        .msg { font-size: 0.7rem; color: #ff0; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="panel">
-        <h1>ATMOSPHERIC NOISE GENERATOR</h1>
-        <div class="stat">Simultaneous Sounds: <span id="count" class="highlight">0</span></div>
-        <div class="stat">Frequency Range: <span id="freq">---</span></div>
-        <div class="stat">Next Interval: <span id="gap" class="highlight">---</span></div>
+        <select id="langSelector">
+            <option value="ja">日本語 (JP)</option>
+            <option value="en_us">English (US)</option>
+            <option value="en_uk">English (UK)</option>
+            <option value="en_au">English (AU)</option>
+            <option value="hi">हिन्दी (IN)</option>
+            <option value="zh_cn">简体中文 (CN)</option>
+            <option value="zh_tw">繁體中文 (TW)</option>
+        </select>
         
-        <button id="btn">FETCHING ATMOSPHERE...</button>
-        <p class="msg">SOURCE: RANDOM.ORG (True Atmospheric Noise)</p>
+        <h1 id="ui_title">ATMOSPHERIC NOISE GENERATOR</h1>
+        <div class="stat"><span id="ui_sounds">Simultaneous Sounds</span>: <span id="count" class="highlight">0</span></div>
+        <div class="stat"><span id="ui_freq">Frequency Range</span>: <span id="freq">---</span></div>
+        <div class="stat"><span id="ui_gap">Next Interval</span>: <span id="gap" class="highlight">---</span></div>
+        
+        <button id="btn">FETCHING...</button>
+        <p id="ui_source" class="msg">SOURCE: RANDOM.ORG (True Atmospheric Noise)</p>
     </div>
 
 <script>
-    let audioCtx = null;
-    let isPlaying = false;
-    let timeoutId = null;
-    const waves = ['sine', 'square', 'sawtooth', 'triangle'];
-    let entropyPool = [];
+    const i18n = {
+        ja: { title: "大気ノイズ・ジェネレーター", sounds: "同時発音数", freq: "周波数帯域", gap: "次までの間隔", start: "生成開始", stop: "停止", source: "ソース: RANDOM.ORG (真の大気ノイズ)" },
+        en_us: { title: "ATMOSPHERIC NOISE GENERATOR", sounds: "Simultaneous Sounds", freq: "Frequency Range", gap: "Next Interval", start: "ACTIVATE", stop: "HALT", source: "SOURCE: RANDOM.ORG (True Atmospheric Noise)" },
+        en_uk: { title: "ATMOSPHERIC NOISE GENERATOR", sounds: "Simultaneous Sounds", freq: "Frequency Range", gap: "Next Interval", start: "ACTIVATE", stop: "HALT", source: "SOURCE: RANDOM.ORG (True Atmospheric Noise)" },
+        en_au: { title: "ATMOSPHERIC NOISE GENERATOR", sounds: "Simultaneous Sounds", freq: "Frequency Range", gap: "Next Interval", start: "ACTIVATE MATE", stop: "HALT MATE", source: "SOURCE: RANDOM.ORG (True Atmospheric Noise)" },
+        hi: { title: "वायुमंडलीय शोर जनरेटर", sounds: "समवर्ती ध्वनियाँ", freq: "आवृत्ति सीमा", gap: "अगला अंतराल", start: "सक्रिय करें", stop: "रोकें", source: "स्रोत: RANDOM.ORG (सत्य वायुमंडलीय शोर)" },
+        zh_cn: { title: "大气噪声发生器", sounds: "同时发音数", freq: "频率范围", gap: "下次间隔时间", start: "开始激活", stop: "停止运行", source: "来源: RANDOM.ORG (真大气噪声)" },
+        zh_tw: { title: "大氣噪聲發生器", sounds: "同時發音數", freq: "頻率範圍", gap: "下次間隔時間", start: "開始激活", stop: "停止運行", source: "來源: RANDOM.ORG (真大氣噪聲)" }
+    };
 
-    // 真の乱数を取得 (JSON-RPCを使用)
+    let audioCtx = null, isPlaying = false, timeoutId = null, entropyPool = [];
+    const waves = ['sine', 'square', 'sawtooth', 'triangle'];
+    const btn = document.getElementById('btn'), langSelector = document.getElementById('langSelector');
+
+    function updateUI() {
+        const l = i18n[langSelector.value];
+        document.getElementById('ui_title').innerText = l.title;
+        document.getElementById('ui_sounds').innerText = l.sounds;
+        document.getElementById('ui_freq').innerText = l.freq;
+        document.getElementById('ui_gap').innerText = l.gap;
+        document.getElementById('ui_source').innerText = l.source;
+        btn.innerText = isPlaying ? l.stop : l.start;
+    }
+
     async function fetchAtmosphericNoise() {
         try {
-            // RANDOM.ORG公式のRPCエンドポイント
             const response = await fetch('https://api.random.org', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    jsonrpc: "2.0",
-                    method: "generateIntegers",
-                    params: {
-                        apiKey: "00000000-0000-0000-0000-000000000000", // デモ用キー
-                        n: 50, min: 0, max: 1000000, replacement: true
-                    },
-                    id: 1
-                })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: "2.0", method: "generateIntegers", params: { apiKey: "00000000-0000-0000-0000-000000000000", n: 50, min: 0, max: 1000000, replacement: true }, id: 1 })
             });
             const data = await response.json();
-            if (data.result) {
-                entropyPool = data.result.random.data.map(n => n / 1000000);
-            } else {
-                throw new Error("Quota exceeded or error");
-            }
+            if (data.result) entropyPool = data.result.random.data.map(n => n / 1000000);
         } catch (e) {
-            // APIエラー時はOSの物理エントロピーを使用
-            for(let i=0; i<50; i++) {
-                entropyPool.push(window.crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295);
-            }
+            for(let i=0; i<50; i++) entropyPool.push(window.crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295);
         } finally {
-            document.getElementById('btn').disabled = false;
-            if (!isPlaying) document.getElementById('btn').innerText = "ACTIVATE ATMOSPHERE";
+            btn.disabled = false;
+            updateUI();
         }
     }
 
@@ -74,72 +85,42 @@
     }
 
     function getExtremeRandom(min, max) {
-        let baseVal = getTrueRandom() * (max - min) + min;
-        let str = baseVal.toString();
+        let val = getTrueRandom() * (max - min) + min;
+        let str = val.toString();
         if (!str.includes('.')) str += '.';
-        while (str.length < 152) {
-            str += Math.floor(getTrueRandom() * 10).toString();
-        }
+        while (str.length < 152) str += Math.floor(getTrueRandom() * 10).toString();
         return str.substring(0, 152);
     }
 
     function triggerChaos() {
         if (!isPlaying) return;
-
-        // 個数は必ず整数
         const count = Math.floor(getTrueRandom() * 10) + 1;
         const nextGapFull = getExtremeRandom(0, 1.5);
-
         document.getElementById('count').innerText = count;
         document.getElementById('gap').innerText = nextGapFull + "s";
-
         for (let i = 0; i < count; i++) {
-            const freqFull = getExtremeRandom(20, 16000);
-            const volumeFull = getExtremeRandom(0, 1.0 / Math.sqrt(count)); 
-            const durationFull = getExtremeRandom(0.05, 3.0);
-            const type = waves[Math.floor(getTrueRandom() * waves.length)];
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-
-            osc.type = type;
-            osc.frequency.setValueAtTime(parseFloat(freqFull), audioCtx.currentTime);
-
-            gain.gain.setValueAtTime(0, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(parseFloat(volumeFull), audioCtx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + parseFloat(durationFull));
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start();
-            osc.stop(audioCtx.currentTime + parseFloat(durationFull));
-
+            const freqFull = getExtremeRandom(20, 16000), volFull = getExtremeRandom(0, 1.0 / Math.sqrt(count)), durFull = getExtremeRandom(0.05, 3.0), type = waves[Math.floor(getTrueRandom() * waves.length)];
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(parseFloat(freqFull), audioCtx.currentTime);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(parseFloat(volFull), audioCtx.currentTime + 0.01); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + parseFloat(durFull));
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + parseFloat(durFull));
             if (i === 0) document.getElementById('freq').innerText = freqFull + "Hz";
         }
-
         timeoutId = setTimeout(triggerChaos, parseFloat(nextGapFull) * 1000);
     }
-
-    const btn = document.getElementById('btn');
-    fetchAtmosphericNoise();
 
     btn.addEventListener('click', function() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        
         isPlaying = !isPlaying;
-        if (isPlaying) {
-            this.innerText = "HALT ATMOSPHERE";
-            this.style.background = "#f0f";
-            triggerChaos();
-        } else {
-            this.innerText = "ACTIVATE ATMOSPHERE";
-            this.style.background = "#0ff";
-            clearTimeout(timeoutId);
-            document.getElementById('count').innerText = "0";
-        }
+        updateUI();
+        if (isPlaying) { this.style.background = "#f0f"; triggerChaos(); }
+        else { this.style.background = "#0ff"; clearTimeout(timeoutId); document.getElementById('count').innerText = "0"; }
     });
+
+    langSelector.addEventListener('change', updateUI);
+    fetchAtmosphericNoise();
 </script>
 </body>
 </html>
