@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChaosMusicGenerelTool(CMGT)</title>
+    <title>ChaosMusicGenerelTool(CMGT) vULTIMATE</title>
     <style>
         body { background: #000; color: #0ff; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; touch-action: manipulation; }
         #panel { border: 3px double #0ff; padding: 20px; background: #001; width: 90%; max-width: 420px; box-shadow: 0 0 50px #f0f; text-align: center; }
@@ -28,12 +28,12 @@
             <option value="zh_cn">简体中文 (CN)</option>
             <option value="zh_tw">繁體中文 (TW)</option>
         </select>
-        <h1 id="ui_title">ULTRA CHAOS GENERATOR</h1>
+        <h1 id="ui_title">ATMOSPHERIC CHAOS TOOL</h1>
         <div class="stat"><span id="ui_sounds">Simultaneous Sounds</span>: <span id="count" class="highlight">0</span></div>
         <div class="stat"><span id="ui_freq">Frequency Range</span>: <span id="freq">---</span></div>
         <div class="stat"><span id="ui_gap">Next Interval</span>: <span id="gap" class="highlight">---</span></div>
         <button id="btn">ACTIVATE CHAOS</button>
-        <p id="ui_source" class="msg">SOURCE: RANDOM.ORG (TRUE ATMOSPHERIC)</p>
+        <p id="ui_source" class="msg">SOURCE: RANDOM.ORG (True Atmospheric)</p>
     </div>
 
 <script>
@@ -72,7 +72,8 @@
 
     function getTrueRandom() {
         if (entropyPool.length < 20) fetchEntropy();
-        return (entropyPool.length > 0) ? entropyPool.shift() : getHardwareEntropy();
+        let r = entropyPool.shift();
+        return (r !== undefined) ? r : getHardwareEntropy();
     }
 
     function getExtremeRandom(min, max) {
@@ -95,59 +96,69 @@
 
     function triggerChaos() {
         if (!isPlaying) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
 
-        // 【いつ鳴らすか】大気ノイズから次の間隔を決定 (0.0s - 1.5s)
-        const nextGapRaw = getExtremeRandom(0, 1.5);
-        const nextGap = parseFloat(nextGapRaw);
-
-        // 【個数】大気ノイズから決定 (1 - 10)
+        const nextGapRaw = getExtremeRandom(0.01, 1.5);
         const count = Math.floor(getTrueRandom() * 10) + 1;
 
         document.getElementById('count').innerText = count;
         document.getElementById('gap').innerText = nextGapRaw + "s";
 
         for (let i = 0; i < count; i++) {
-            // 【周波数】大気ノイズから150桁精度
-            const freqRaw = getExtremeRandom(20, 16000);
-            const freqVal = parseFloat(freqRaw);
+            // スライドの「どっから(開始周波数)」を大気ノイズで決定
+            const startFreq = parseFloat(getExtremeRandom(20, 16000));
+            // 「どこまで(到達周波数)」を大気ノイズで決定
+            const endFreq = parseFloat(getExtremeRandom(20, 16000));
             
-            // 【どこまで伸ばすか】大気ノイズから長さ決定 (0.05s - 3.0s)
-            const durRaw = getExtremeRandom(0.05, 3.0);
-            const dur = parseFloat(durRaw);
-
-            const vol = parseFloat(getExtremeRandom(0, 1.0 / Math.sqrt(count)));
+            const dur = parseFloat(getExtremeRandom(0.1, 3.0));
             const type = waves[Math.floor(getTrueRandom() * 4)];
 
             const osc = audioCtx.createOscillator();
+            const lfo = audioCtx.createOscillator(); // ビブラート
+            const lfoGain = audioCtx.createGain();
             const gain = audioCtx.createGain();
-            const panner = audioCtx.createStereoPanner();
 
             osc.type = type;
-            osc.frequency.setValueAtTime(freqVal, audioCtx.currentTime);
-            
-            // 周波数のうねりも大気ノイズで変調
-            osc.frequency.exponentialRampToValueAtTime(parseFloat(getExtremeRandom(20, 16000)), audioCtx.currentTime + dur);
+            osc.frequency.setValueAtTime(startFreq, audioCtx.currentTime);
+
+            // 【スライド】「いつ」「どのくらいの長さで」どっからどこまで動くか
+            const slideStartDelay = parseFloat(getExtremeRandom(0, dur * 0.4));
+            const slideDuration = parseFloat(getExtremeRandom(0.01, dur - slideStartDelay));
+            osc.frequency.exponentialRampToValueAtTime(endFreq, audioCtx.currentTime + slideStartDelay + slideDuration);
+
+            // 【ビブラート】大気が決める「いつ」「長さ」「速さ」「深さ」
+            const vibStart = parseFloat(getExtremeRandom(0, dur * 0.5));
+            const vibFreq = parseFloat(getExtremeRandom(0.1, 30.0)); // 速さ
+            const vibDepth = parseFloat(getExtremeRandom(0, 200.0));  // 深さ
+            lfo.frequency.setValueAtTime(vibFreq, audioCtx.currentTime);
+            lfoGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            lfoGain.gain.linearRampToValueAtTime(vibDepth, audioCtx.currentTime + vibStart + 0.1);
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+
+            // 【こぶし】大気が決める「いつ」「長さ」「どこの周波数へ」
+            const kobushiTime = parseFloat(getExtremeRandom(dur * 0.7, dur * 0.95));
+            const kobushiFreq = parseFloat(getExtremeRandom(20, 16000));
+            osc.frequency.setValueAtTime(kobushiFreq, audioCtx.currentTime + kobushiTime);
 
             gain.gain.setValueAtTime(0, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.01);
+            gain.gain.linearRampToValueAtTime(0.3 / Math.sqrt(count), audioCtx.currentTime + 0.05);
             gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
 
-            panner.pan.setValueAtTime(getTrueRandom() * 2 - 1, audioCtx.currentTime);
-
-            osc.connect(gain).connect(panner).connect(audioCtx.destination);
-            osc.start(); 
+            osc.connect(gain).connect(audioCtx.destination);
+            lfo.start(audioCtx.currentTime + vibStart);
+            osc.start();
+            
+            lfo.stop(audioCtx.currentTime + dur);
             osc.stop(audioCtx.currentTime + dur);
 
-            if (i === 0) document.getElementById('freq').innerText = freqRaw + "Hz";
+            if (i === 0) document.getElementById('freq').innerText = getExtremeRandom(20, 16000) + "Hz";
         }
-        
-        // 次のトリガー時間を「大気が決めた間隔」で予約
-        timeoutId = setTimeout(triggerChaos, nextGap * 1000);
+        timeoutId = setTimeout(triggerChaos, parseFloat(nextGapRaw) * 1000);
     }
 
     btn.addEventListener('click', function() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
         isPlaying = !isPlaying;
         updateUI();
         if (isPlaying) { this.style.background = "#f0f"; triggerChaos(); }
