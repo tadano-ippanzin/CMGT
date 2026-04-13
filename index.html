@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChaosMusicGeneralTool(CMGT) vULTIMATE - PURE PRNG</title>
+    <title>ChaosMusicGeneralTool(CMGT)</title>
     <style>
         body { background: #000; color: #0ff; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         #panel { border: 3px double #0ff; padding: 20px; background: #001; width: 100%; max-width: 600px; box-shadow: 0 0 50px #f0f; text-align: center; }
@@ -26,19 +26,18 @@
             <option value="en_us">English (US)</option>
             <option value="en_au">English (AU)</option>
         </select>
-        <h1 id="ui_title">PURE CHAOS GENERATOR</h1>
+        <h1 id="ui_title">CHAOS MUSIC GENERATOR</h1>
         <div class="stat"><span id="ui_sounds">Simultaneous Sounds</span>: <span id="count" class="highlight">0</span></div>
         <div class="stat"><span id="ui_gap">Next Interval</span>: <span id="gap" class="highlight">---</span></div>
         <div id="freq_list"></div>
         <button id="btn">ACTIVATE CHAOS</button>
-        <p id="ui_source" class="msg">SOURCE: INTERNAL PRNG (High-Precision)</p>
     </div>
 
 <script>
     const i18n = {
-        ja: { title: "高精度疑似乱数カオス・ツール", sounds: "同時発音数", gap: "次弾までの間隔", start: "カオス起動", stop: "カオス停止", source: "ソース: 高精度疑似乱数 (150桁)" },
-        en_us: { title: "PURE CHAOS GENERATOR", sounds: "Active Oscillators", gap: "Chaos Interval", start: "ACTIVATE CHAOS", stop: "HALT CHAOS", source: "SOURCE: INTERNAL PRNG (150-Prec)" },
-        en_au: { title: "PURE CHAOS GENERATOR", sounds: "Total Noise Units", gap: "Chaos Gap", start: "GO NUTS MATE", stop: "STOP IT MATE", source: "SOURCE: INTERNAL PRNG" }
+        ja: { title: "カオス音楽ジェネレータ", sounds: "同時発音数", gap: "次弾までの間隔", start: "起動", stop: "停止"},
+        en_us: { title: "PURE CHAOS GENERATOR", sounds: "Active Oscillators", gap: "Interval", start: "ACTIVATE", stop: "HALT"},
+        en_au: { title: "PURE CHAOS GENERATOR", sounds: "Total Noise Units", gap: "Gap", start: "GO", stop: "STOP",}
     };
 
     let audioCtx = null, isPlaying = false, timeoutId = null;
@@ -79,8 +78,6 @@
 
         document.getElementById('count').innerText = count;
         document.getElementById('gap').innerText = nextGapRaw + "s";
-        
-        // 周波数リストをクリア
         freqListDiv.innerHTML = '';
 
         for (let i = 0; i < count; i++) {
@@ -89,8 +86,6 @@
             const endFreq = parseFloat(getExtremeRandom(20, 16000));
             const dur = parseFloat(getExtremeRandom(0.1, 3.0));
             const type = waves[Math.floor(getTrueRandom() * 4)];
-
-            // UIへの全表示
             const freqItem = document.createElement('div');
             freqItem.className = 'freq-item';
             freqItem.innerText = `OSC_${i+1}: ${rawFreq} Hz`;
